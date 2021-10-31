@@ -283,11 +283,10 @@ Resources:
       Code: 
         ZipFile: |
           from __future__ import print_function
-          from urllib2 import build_opener, HTTPHandler, Request
+          from urllib.request import build_opener, HTTPHandler, Request
           from botocore.exceptions import ClientError
           import boto3
           import json
-          import httplib
           import os
            
           def handler(event, context):
@@ -359,7 +358,7 @@ Resources:
             })
 
             opener = build_opener(HTTPHandler)
-            request = Request(event['ResponseURL'], data=responseBody)
+            request = Request(event['ResponseURL'], data=responseBody.encode("utf-8"))
             request.add_header('Content-Type', '')
             request.add_header('Content-Length', len(responseBody))
             request.get_method = lambda: 'PUT'
@@ -369,7 +368,7 @@ Resources:
 
             return responseBody
 
-      Runtime: "python2.7"
+      Runtime: "python3.9"
       Timeout: "35"
 
   LambdaAdditionalConfigRole: 
@@ -552,7 +551,7 @@ Resources:
 
             print(response)
             return response
-      Runtime: "python2.7"
+      Runtime: "python3.9"
       Timeout: "120"
   LambdaRemediationInspectInvokePermissions: 
     DependsOn:
@@ -599,17 +598,29 @@ Resources:
 
             # Set Event Variables
             gd_sev = event['detail']['severity']
-            gd_vpc_id = event["detail"]["resource"]["instanceDetails"]["networkInterfaces"][0]["vpcId"]
             gd_instance_id = event["detail"]["resource"]["instanceDetails"]["instanceId"]
-            gd_subnet_id = event["detail"]["resource"]["instanceDetails"]["networkInterfaces"][0]["subnetId"]
             gd_offending_id = event["detail"]["service"]["action"]["networkConnectionAction"]["remoteIpDetails"]["ipAddressV4"]
+            try:
+              gd_vpc_id = event["detail"]["resource"]["instanceDetails"]["networkInterfaces"][0]["vpcId"]
+              gd_subnet_id = event["detail"]["resource"]["instanceDetails"]["networkInterfaces"][0]["subnetId"]
+            except Exception:
+              ec2_resource = boto3.resource('ec2')
+              instance = ec2_resource.Instance(id=gd_instance_id)
+              name_tag = [x['Value'] for x in instance.tags if x['Key'] == 'Name']
+              gd_vpc_id = instance.vpc_id
+              gd_subnet_id = instance.subnet_id
 
             response = "Skipping Remediation"
 
             wksp = False
 
-            for i in event['detail']['resource']['instanceDetails']['tags']:
-              if i['value'] == os.environ['PREFIX']:
+            try:
+              for i in event['detail']['resource']['instanceDetails']['tags']:
+                if i['value'] == os.environ['PREFIX']:
+                  wksp = True
+            except Exception:
+              name_tag = [x['Value'] for x in instance.tags if x['Key'] == 'Name']
+              if os.environ['PREFIX'] in name_tag:
                 wksp = True
 
             print("log -- Event: Workshop - %s" % wksp)
@@ -671,7 +682,7 @@ Resources:
               print("Something went wrong with the NACL remediation Lambda")
             return response
 
-      Runtime: "python2.7"
+      Runtime: "python3.9"
       Timeout: "35"
   LambdaRemediationNACLInvokePermissions: 
     DependsOn:
