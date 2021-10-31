@@ -611,6 +611,8 @@ Resources:
               gd_subnet_id = instance.subnet_id
 
             response = "Skipping Remediation"
+            print(f'gd_vpc_id: {gd_vpc_id}')
+            print(f'gd_subnet_id: {gd_subnet_id}')
 
             wksp = False
 
@@ -648,6 +650,9 @@ Resources:
               )
                            
               gd_nacl_id = response["NetworkAcls"][0]["NetworkAclId"]
+              print(f'gd_nacl_id: {gd_nacl_id}')
+              print(f'gd_sev: {gd_sev}')
+              print(f'finding type: {event["detail"]["type"]}')
 
               if gd_sev == 2 and wksp == True and event["detail"]["type"] == "UnauthorizedAccess:EC2/SSHBruteForce":
                 response = ec2.create_network_acl_entry(
@@ -659,6 +664,7 @@ Resources:
                     RuleAction='deny',
                     RuleNumber=90
                 )
+                print(json.dumps(response))
 
                 print("log -- Event: NACL Deny Rule for UnauthorizedAccess:EC2/SSHBruteForce Finding ")
                   
@@ -672,6 +678,7 @@ Resources:
                       RuleAction='deny',
                       RuleNumber=90
                   )
+                  print(json.dumps(response))
 
                   print("log -- Event: NACL Deny Rule for UnauthorizedAccess:EC2/MaliciousIPCaller.Custom Finding ")
               else:
